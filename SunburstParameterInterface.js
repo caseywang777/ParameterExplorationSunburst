@@ -43,6 +43,7 @@ class SunburstParameterInterface
         this.svg = d3.select(this.parentElementID).append('g').append('svg').attr('width', this.svgWidth).attr('height', this.svgHeight);
         this.legendG = this.svg.append('g').attr('transform', `translate(20, 20)` );
         this.sunburstG = this.svg.append('g').attr('transform', `translate(${this.sunburstRadius}, ${this.sunburstRadius+this.legendWholeHeight})` );
+        this.textG = this.svg.append('g').attr('transform', `translate(0, ${this.sunburstRadius*2+this.legendWholeHeight})` );
 
         this.legendSubG = null;
 
@@ -158,35 +159,53 @@ class SunburstParameterInterface
         this.arcGeneratorBackground = d3.arc()
                                 .startAngle(function(d) { return d.x0; })
                                 .endAngle(function(d) { return d.x1; })
-                                .innerRadius(function(d) { return d.y0; })
-                                .outerRadius(function(d) { return d.y1; });
+                                .innerRadius(function(d) { 
+                                    if(d.id === "root") return 0;
+                                    else return d.y0; 
+                                })
+                                .outerRadius(function(d) { 
+                                    if(d.id === "root") return 0;
+                                    else return d.y1; 
+                                });
 
         this.arcGeneratorMain = d3.arc()
                                 .startAngle(function(d) { return d.x0; })
                                 .endAngle(function(d) { return d.x1; })
                                 .innerRadius(function(d) { 
-                                    if(d.id === "root")return;
-                                    let arcLen = (d.y1 - d.y0) * (1-vis.headRatio);
-                                    let visitCount = vis.countVisitedSubspace(d.data.subSpaceIndexInfo);
-                                    let visitRatio = ( visitCount/ d.data.totalSubspace );
-                                    let arcModify = (1 - visitRatio) * arcLen;
-                                    return (d.y1 - d.y0) * vis.headRatio + d.y0 + arcModify; 
+                                    if(d.id === "root")return 0;
+                                    else{
+                                        let arcLen = (d.y1 - d.y0) * (1-vis.headRatio);
+                                        let visitCount = vis.countVisitedSubspace(d.data.subSpaceIndexInfo);
+                                        d.data['visitedSubspace'] = visitCount;
+                                        let visitRatio = ( visitCount/ d.data.totalSubspace );
+                                        let arcModify = (1 - visitRatio) * arcLen;
+                                        return (d.y1 - d.y0) * vis.headRatio + d.y0 + arcModify; 
+                                    }
                                 })
-                                .outerRadius(function(d) { return d.y1; });
+                                .outerRadius(function(d) { 
+                                    if(d.id === "root") return 0;
+                                    else return d.y1; 
+                                });
 
         this.arcGeneratorHead = d3.arc()
                                     .startAngle(function(d) { return d.x0; })
                                     .endAngle(function(d) { return d.x1; })
-                                    .innerRadius(function(d) { return d.y0; })
-                                    .outerRadius(function(d) { return (d.y1 - d.y0) * vis.headRatio + d.y0; });
+                                    .innerRadius(function(d) { 
+                                        if(d.id === "root") return 0;
+                                        else return d.y0; 
+                                    })
+                                    .outerRadius(function(d) { 
+                                        if(d.id === "root") return 0;
+                                        else return (d.y1 - d.y0) * vis.headRatio + d.y0; 
+                                    });
 
         let allNodes = rootNode.descendants();
-        let nodes = this.sunburstG
+        this.nodes = this.sunburstG
                         .selectAll('g')
                         .data(allNodes)
                         .enter()
                         .append('g').attr('id', "sunburstGNode");
-        nodes.attr('transform', 'scale(0.1)');
+        this.nodes.attr('transform', 'scale(0.1)');
 
         //calculate total subspace belong to each node (include non-leaf node)
         this.treeData.forEach((d)=>{
@@ -199,7 +218,7 @@ class SunburstParameterInterface
             d['totalSubspace'] = totalCount;
         });
 
-        this.pathBackground = nodes.append('path')
+        this.pathBackground = this.nodes.append('path')
                             .attr('d', vis.arcGeneratorBackground)
                             .attr('fill', function(d){
                                 return 'gray'
@@ -207,7 +226,7 @@ class SunburstParameterInterface
                             .attr('opacity', 1.0)
                             .attr('stroke', 'white');
 
-        this.pathMain = nodes.append('path')
+        this.pathMain = this.nodes.append('path')
                             .attr('d', vis.arcGeneratorMain)
                             .attr('fill', function(d){
                                 if( d.id === "root") return;
@@ -221,7 +240,7 @@ class SunburstParameterInterface
                             .attr('opacity', 1.0)
                             .attr('stroke', 'white');
 
-        this.pathHead = nodes.append('path')
+        this.pathHead = this.nodes.append('path')
                             .attr('d', vis.arcGeneratorHead)
                             .attr('fill', function(d){
                                 if( d.id === "root") return;
@@ -250,11 +269,32 @@ class SunburstParameterInterface
                                         })
                         .on("mouseleave", function(){
                             let arc = d3.select(this);
-                            console.log(arc.data())
                             arc.attr('stroke', 'white').attr('stroke-width', 0);
                             vis.legendSubG.selectAll('rect').attr('stroke', 'white').attr('stroke-width',0);
                         })
-        nodes.transition().ease(d3.easeExp).duration(1000).attr('transform', 'scale(1)');
+        
+        this.pathBackground.on('click', showSubspaceText);
+        function showSubspaceText(d){
+            console.log(d);
+        }
+
+        let tip = d3.tip().attr('class', 'd3-tip')
+                        .html(function(d){
+                            return ((d.data.visitedSubspace/d.data.totalSubspace)*100).toFixed(2) + "%";
+                        });    
+        
+        this.pathMain.call(tip);
+        this.pathMain.on('mouseover', tip.show).on('mouseout', tip.hide);
+        this.pathBackground.call(tip);
+        this.pathBackground.on('mouseover', tip.show).on('mouseout', tip.hide);
+        //// calculate visited ratio of all subspaces
+        let nVisitedSubspace = vis.subSpaceData.reduce((acc, currentValue)=>{
+            if(currentValue.visit)acc++;
+            return acc;
+        }, 0)
+        let totalVisitRatio = nVisitedSubspace / vis.subSpaceData.length;
+        this.totalSubSpaceRatioText = this.nodes.append("text").attr("x",0).attr("y",0).text((totalVisitRatio*100).toFixed(2) + "%").attr('font-size', 25).attr('text-anchor', 'middle').attr('dx',5).attr('dy', 5);
+        this.nodes.transition().ease(d3.easeExp).duration(1000).attr('transform', 'scale(1)');
     }
 
     createTree(paraRange, parent, paraIndex, nodeInfo, subSpaceIndexInfo){
@@ -358,7 +398,6 @@ class SunburstParameterInterface
                 dic[d.name] = [0, d.nIntervals-1];
             }
         });
-        console.log(dic)
         let ret = [];
         this.listCombinationSubspacesIndex(ret, Object.keys(dic), dic, 0, {});
         let visitCount = 0;
@@ -408,6 +447,13 @@ class SunburstParameterInterface
             this.subSpaceData[idx1D].visit = true;
         })
 
+        //// calculate visited ratio of all subspaces
+        let nVisitedSubspace = vis.subSpaceData.reduce((acc, currentValue)=>{
+            if(currentValue.visit)acc++;
+            return acc;
+        }, 0)
+        let totalVisitRatio = nVisitedSubspace / vis.subSpaceData.length;
+        vis.totalSubSpaceRatioText.text((totalVisitRatio*100).toFixed(2) + "%");
         vis.pathMain.attr('d', vis.arcGeneratorMain); 
     }
 }

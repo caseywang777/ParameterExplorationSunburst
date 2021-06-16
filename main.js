@@ -1,7 +1,7 @@
 
 
 let paraRange = [{"start": 0, "end": 1, "name": "AAA", "intervals": 5, "colormap": d3.interpolateReds, "subSpaceIntervals": 18}, 
-                  {"start": 0.05, "end": 0.07, "name": "B", "intervals": 5, "colormap": d3.interpolateBlues, "subSpaceIntervals": 12}, 
+                  {"start": 0.05, "end": 0.07, "name": "B", "intervals": 4, "colormap": d3.interpolateBlues, "subSpaceIntervals": 12}, 
                   {"start": 1.8, "end": 2.5, "name": "C", "intervals": 6, "colormap": d3.interpolateGreens, "subSpaceIntervals": 20} ];
 
 let selectArcEventFunc = function(d){
@@ -9,7 +9,7 @@ let selectArcEventFunc = function(d){
 };
 
 const sunburstUI = new SunburstParameterInterface("#chart-area", 1000, 1000, 250, 
-                                                  paraRange, 0.2, selectArcEventFunc);
+                                                  paraRange, 0.15, selectArcEventFunc);
 
 //// test for mouse over the small circle
 let selected = [{"AAA": 0.5, "B": 0.06, "C":2}, {"AAA": 0.8, "B": 0.06, "C":2}];
