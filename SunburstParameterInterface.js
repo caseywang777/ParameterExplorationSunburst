@@ -11,7 +11,7 @@ class SunburstParameterInterface
     //_selectArcEventFunc: invoke this function when user clicks on a arc
     constructor(_parentElementID, _visWidth, _visHeight, _sunburstRadius, 
                 _parameterInfo, _headRatio,
-                _selectArcEventFunc){
+                _selectArcEventFunc, _selectParaTextEventFunc){
         const vis = this;
         this.parentElementID = _parentElementID;
         this.svgWidth = _visWidth;
@@ -20,6 +20,7 @@ class SunburstParameterInterface
         this.parameterInfo = _parameterInfo;
         this.headRatio = _headRatio;
         this.selectArcEventFunc = _selectArcEventFunc;
+        this.selectParaTextEventFunc = _selectParaTextEventFunc;
 
         this.paraOrderForSubspace = [];
         this.parameterInfo.forEach(function(d,i){
@@ -43,7 +44,7 @@ class SunburstParameterInterface
         this.svg = d3.select(this.parentElementID).append('g').append('svg').attr('width', this.svgWidth).attr('height', this.svgHeight);
         this.legendG = this.svg.append('g').attr('transform', `translate(20, 20)` );
         this.sunburstG = this.svg.append('g').attr('transform', `translate(${this.sunburstRadius}, ${this.sunburstRadius+this.legendWholeHeight})` );
-        this.textG = this.svg.append('g').attr('transform', `translate(0, ${this.sunburstRadius*2+this.legendWholeHeight})` );
+        this.textG = this.svg.append('g').attr('transform', `translate(0, ${this.sunburstRadius*2+this.legendWholeHeight + 30})` );
 
         this.legendSubG = null;
 
@@ -274,8 +275,37 @@ class SunburstParameterInterface
                         })
         
         this.pathBackground.on('click', showSubspaceText);
+        this.pathMain.on('click', showSubspaceText);
         function showSubspaceText(d){
-            console.log(d);
+            if( Object.keys(d.data.nodeInfo).length === vis.parameterInfo.length ){ //this function only works on leaf
+                let ret = [];
+                let dic = d.data.subSpaceIndexInfo;
+                vis.listCombinationSubspacesIndex(ret, Object.keys(dic), dic, 0, {});
+                let nonVisitedPara = [];
+                ret.forEach(function(d){
+                    let idx1D =vis.subspacIdxDicToSubspace1DIndex(d);
+                    if(!vis.subSpaceData[idx1D].visit) nonVisitedPara.push( vis.subSpaceData[idx1D] );
+                });
+                
+                let texts = vis.textG.selectAll('.parameterText').data(nonVisitedPara);
+                texts.exit().remove();
+                let textEnter = texts.enter().append('text').text(formatText).attr('x', 0).attr('y', (d,i)=>i*20).attr('class', 'parameterText');
+                texts.text(formatText).attr('x', 0).attr('y', (d,i)=>i*20).attr('class', 'parameterText');
+                texts = texts.merge(textEnter);
+
+                function formatText(d){ 
+                    let t = Object.keys(d).reduce(function(acc, currentValue){
+                        if( ! ( currentValue === 'visit' ) )
+                            return acc + currentValue + ": " + d[currentValue][0].toFixed(3) + ", "
+                        else return acc;
+                    }, "[");
+                    t = t.slice(0, -2);
+                    t += ']';
+                    return t;
+                }
+
+                texts.on('click', vis.selectParaTextEventFunc);
+            }
         }
 
         let tip = d3.tip().attr('class', 'd3-tip')

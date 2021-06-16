@@ -5,11 +5,20 @@ let paraRange = [{"start": 0, "end": 1, "name": "AAA", "intervals": 5, "colormap
                   {"start": 1.8, "end": 2.5, "name": "C", "intervals": 6, "colormap": d3.interpolateGreens, "subSpaceIntervals": 20} ];
 
 let selectArcEventFunc = function(d){
-  console.log(d.data.nodeInfo);
+  console.log("Click on arc:", d.data.nodeInfo);
+};
+
+let selectParameterTextEventFunc = function(d){
+  console.log("Click on parameter text:", d);
+  let invokePara = {};
+  paraRange.forEach(function(p){
+    invokePara[p.name] = d[p.name][0];
+  });
+  console.log("Invoke para:", invokePara);
 };
 
 const sunburstUI = new SunburstParameterInterface("#chart-area", 1000, 1000, 250, 
-                                                  paraRange, 0.15, selectArcEventFunc);
+                                                  paraRange, 0.15, selectArcEventFunc, selectParameterTextEventFunc);
 
 //// test for mouse over the small circle
 let selected = [{"AAA": 0.5, "B": 0.06, "C":2}, {"AAA": 0.8, "B": 0.06, "C":2}];
