@@ -12,6 +12,7 @@ class SunburstParameterInterface
     constructor(_parentElementID, _visWidth, _visHeight, _sunburstRadius, 
                 _parameterInfo, _headRatio,
                 _selectArcEventFunc){
+        const vis = this;
         this.parentElementID = _parentElementID;
         this.svgWidth = _visWidth;
         this.svgHeight = _visHeight;
@@ -20,6 +21,18 @@ class SunburstParameterInterface
         this.headRatio = _headRatio;
         this.selectArcEventFunc = _selectArcEventFunc;
 
+        this.paraOrderForSubspace = [];
+        this.parameterInfo.forEach(function(d,i){
+            let dic = {};
+            dic['name'] = d.name;
+            dic['start'] = d.start;
+            dic['nIntervals'] = d.subSpaceIntervals;
+            dic['interval'] = (d.end - d.start) / d.subSpaceIntervals;
+            vis.paraOrderForSubspace.push(dic);
+        });
+        
+        this.subSpaceData = [];
+        this.createSubspaceList(this.parameterInfo, {}, 0);
 
         this.legendWholeWidth = this.sunburstRadius*2, 
         this.legendWholeHeight = 150;
@@ -109,6 +122,7 @@ class SunburstParameterInterface
                 return `translate(0, ${legendTextYScaleBand(d.name)})`;
             });
 
+            //Update what we have to update when the order of parameter change and recreate the sunburst
             let parameterInfoDic = {};
             vis.parameterInfo.forEach(d=>parameterInfoDic[d.name]=d);
             vis.parameterInfo = [];
@@ -125,7 +139,7 @@ class SunburstParameterInterface
         if(remove) vis.sunburstG.selectAll("*").remove();
 
         this.treeData = [{'name': 'root', 'parent': ""}];
-        this.createTree(this.parameterInfo, "root", 0, {});
+        this.createTree(this.parameterInfo, "root", 0, {}, {});
         
 
         let root = d3.stratify()
@@ -141,13 +155,26 @@ class SunburstParameterInterface
         let partitionLayout = d3.partition().size([2 * Math.PI, this.sunburstRadius]);
         partitionLayout(rootNode);
 
-        let arcGeneratorMain = d3.arc()
+        this.arcGeneratorBackground = d3.arc()
                                 .startAngle(function(d) { return d.x0; })
                                 .endAngle(function(d) { return d.x1; })
-                                .innerRadius(function(d) { return (d.y1 - d.y0) * vis.headRatio + d.y0; })
+                                .innerRadius(function(d) { return d.y0; })
                                 .outerRadius(function(d) { return d.y1; });
 
-        let arcGeneratorHead = d3.arc()
+        this.arcGeneratorMain = d3.arc()
+                                .startAngle(function(d) { return d.x0; })
+                                .endAngle(function(d) { return d.x1; })
+                                .innerRadius(function(d) { 
+                                    if(d.id === "root")return;
+                                    let arcLen = (d.y1 - d.y0) * (1-vis.headRatio);
+                                    let visitCount = vis.countVisitedSubspace(d.data.subSpaceIndexInfo);
+                                    let visitRatio = ( visitCount/ d.data.totalSubspace );
+                                    let arcModify = (1 - visitRatio) * arcLen;
+                                    return (d.y1 - d.y0) * vis.headRatio + d.y0 + arcModify; 
+                                })
+                                .outerRadius(function(d) { return d.y1; });
+
+        this.arcGeneratorHead = d3.arc()
                                     .startAngle(function(d) { return d.x0; })
                                     .endAngle(function(d) { return d.x1; })
                                     .innerRadius(function(d) { return d.y0; })
@@ -161,16 +188,41 @@ class SunburstParameterInterface
                         .append('g').attr('id', "sunburstGNode");
         nodes.attr('transform', 'scale(0.1)');
 
-        this.pathMain = nodes.append('path')
-                            .attr('d', arcGeneratorMain)
+        //calculate total subspace belong to each node (include non-leaf node)
+        this.treeData.forEach((d)=>{
+            if(d.name === "root")return;
+            let allDimension = {}
+            vis.paraOrderForSubspace.forEach(d=>allDimension[d.name]=d.nIntervals);
+            Object.keys( d.subSpaceIndexInfo ).forEach(k=>allDimension[k] = d.subSpaceIndexInfo[k][1] - d.subSpaceIndexInfo[k][0] + 1);
+            let totalCount = 1;
+            Object.keys(allDimension).forEach(k=>totalCount = allDimension[k]*totalCount);
+            d['totalSubspace'] = totalCount;
+        });
+
+        this.pathBackground = nodes.append('path')
+                            .attr('d', vis.arcGeneratorBackground)
                             .attr('fill', function(d){
                                 return 'gray'
                                 })
                             .attr('opacity', 1.0)
                             .attr('stroke', 'white');
 
+        this.pathMain = nodes.append('path')
+                            .attr('d', vis.arcGeneratorMain)
+                            .attr('fill', function(d){
+                                if( d.id === "root") return;
+                                let idx = 0;
+                                vis.parameterInfo.forEach( function(dPara, i){
+                                                                if(d.data.paraName === dPara.name) idx = i;
+                                                            });
+                                let value2Colormap = vis.parameterInfo[idx]['paraColorMap'][d.data.paraIndex][1];
+                                return vis.parameterInfo[idx]['colormap'](value2Colormap);                                
+                            })
+                            .attr('opacity', 1.0)
+                            .attr('stroke', 'white');
+
         this.pathHead = nodes.append('path')
-                            .attr('d', arcGeneratorHead)
+                            .attr('d', vis.arcGeneratorHead)
                             .attr('fill', function(d){
                                 if( d.id === "root") return;
                                 let idx = 0;
@@ -198,13 +250,14 @@ class SunburstParameterInterface
                                         })
                         .on("mouseleave", function(){
                             let arc = d3.select(this);
+                            console.log(arc.data())
                             arc.attr('stroke', 'white').attr('stroke-width', 0);
                             vis.legendSubG.selectAll('rect').attr('stroke', 'white').attr('stroke-width',0);
                         })
         nodes.transition().ease(d3.easeExp).duration(1000).attr('transform', 'scale(1)');
     }
 
-    createTree(paraRange, parent, paraIndex, nodeInfo){
+    createTree(paraRange, parent, paraIndex, nodeInfo, subSpaceIndexInfo){
         let interval = (paraRange[paraIndex].end - paraRange[paraIndex].start) / paraRange[paraIndex].intervals;
         
         for( let i = 0; i < paraRange[paraIndex].intervals; i ++){
@@ -215,16 +268,105 @@ class SunburstParameterInterface
             let nodeName = parent + "_" + i;
             let newNodeInfo = {...nodeInfo};
             newNodeInfo[paraName] = [start, end];
-            let node = {"name": nodeName, "parent": parent, "nodeInfo": newNodeInfo, "paraIndex": i, "paraName": paraRange[paraIndex].name};
+
+            let newSubSpaceIndexInfo = {...subSpaceIndexInfo};
+            let subspaceIdx = this.paraOrderForSubspace.findIndex(d=>d.name===paraName);
+            let oneSubSpaceInfo = this.paraOrderForSubspace[subspaceIdx];
+            let subSpaceStartIndex = Math.floor((start - oneSubSpaceInfo['start'])/oneSubSpaceInfo['interval']);
+            let subSpaceEndIndex = Math.floor((end-0.000001 - oneSubSpaceInfo['start'])/oneSubSpaceInfo['interval']);//0.000001 avoid the last (not existing) index
+            newSubSpaceIndexInfo[paraName] = [subSpaceStartIndex, subSpaceEndIndex];//include subSpaceEndIndex
+            let node = {"name": nodeName, "parent": parent, "nodeInfo": newNodeInfo, "paraIndex": i, "paraName": paraRange[paraIndex].name, "subSpaceIndexInfo": newSubSpaceIndexInfo};
         
             if( paraIndex === paraRange.length - 1 ){//leaf node
                 node['value'] = 1;
                 this.treeData.push(node);
             }else{
                 this.treeData.push(node);
-                this.createTree(paraRange, nodeName, paraIndex+1, newNodeInfo);
+                this.createTree(paraRange, nodeName, paraIndex+1, newNodeInfo, newSubSpaceIndexInfo);
             }
         }
+    }
+
+    createSubspaceList(paraRange, parents, paraIndex){
+        let interval = (paraRange[paraIndex].end - paraRange[paraIndex].start) / paraRange[paraIndex].subSpaceIntervals;
+        
+        for( let i = 0; i < paraRange[paraIndex].subSpaceIntervals; i ++){
+            let start = paraRange[paraIndex].start + i * interval;
+            let end = paraRange[paraIndex].start + (i+1) * interval;
+            let paraName =  paraRange[paraIndex].name;
+
+            let currentNodeInfo = {...parents};
+            currentNodeInfo[paraName] = [(start+end)/2, interval/2];
+
+            if( paraIndex === paraRange.length - 1 ){//leaf node
+                currentNodeInfo['visit'] = false;
+                this.subSpaceData.push(currentNodeInfo);
+            }else{
+                this.createSubspaceList(paraRange, currentNodeInfo, paraIndex+1);
+            }
+        }
+    }
+
+    
+
+    listCombinationSubspacesIndex(ret, keys, dic, idx, local){
+        let nPara = keys.length;
+        let paraName = keys[idx];
+        let startIdx = dic[paraName][0];
+        let endIdx = dic[paraName][1];
+
+        for( let i = startIdx; i<=endIdx; i++ ){
+            let newLocal = {...local};
+            newLocal[paraName] = i;
+            if( idx === nPara - 1){//leaf node
+                ret.push(newLocal);
+            }else{
+                this.listCombinationSubspacesIndex(ret, keys, dic, idx + 1, newLocal);
+            }
+        }
+    }
+
+    paraDictionaryToSubspaceIndex(dic){
+        let idx1D = 0;
+        this.paraOrderForSubspace.forEach(function(d,i){
+            let pName = d['name'];
+            let nInterval = d['nIntervals'];
+            let interval = d['interval'];
+            let start = d['start'];
+            let value = dic[pName];
+            let idx = Math.floor((value-start)/interval);
+            idx1D = idx1D*nInterval + idx;
+        });
+        return idx1D; //use this.subSpaceData[idx1D] to access the corresponding subspace 
+    }
+
+    subspacIdxDicToSubspace1DIndex(dic){
+        let idx1D = 0;
+        this.paraOrderForSubspace.forEach(function(d,i){
+            let pName = d['name'];
+            let nInterval = d['nIntervals'];
+            let idx = dic[pName];
+            idx1D = idx1D*nInterval + idx;
+        });
+        return idx1D; //use this.subSpaceData[idx1D] to access the corresponding subspace 
+    }
+
+    countVisitedSubspace(dic){
+        //dic example: let dic = {"AAA": [2, 5], "B": [1, 3], "C": [5, 8]};
+        this.paraOrderForSubspace.forEach(function(d){
+            if( !(d.name in dic ) ){
+                dic[d.name] = [0, d.nIntervals-1];
+            }
+        });
+        console.log(dic)
+        let ret = [];
+        this.listCombinationSubspacesIndex(ret, Object.keys(dic), dic, 0, {});
+        let visitCount = 0;
+        ret.forEach((d)=>{
+            let idx1D = this.subspacIdxDicToSubspace1DIndex(d);
+            if( this.subSpaceData[idx1D].visit === true)visitCount++;
+        });
+        return visitCount;
     }
 
     hightlight( element, selected ){
@@ -257,5 +399,15 @@ class SunburstParameterInterface
     unhightlight( element, selected ){
         const vis = this;
         vis.pathHead.attr("stroke", 'white' ).attr("stroke-width", 1);
+    }
+
+    setVisitedSubspace( visitParas ){
+        const vis = this;
+        visitParas.forEach(d=>{
+            let idx1D = this.paraDictionaryToSubspaceIndex(d);
+            this.subSpaceData[idx1D].visit = true;
+        })
+
+        vis.pathMain.attr('d', vis.arcGeneratorMain); 
     }
 }

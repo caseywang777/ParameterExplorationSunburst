@@ -1,8 +1,8 @@
 
 
-let paraRange = [{"start": 0, "end": 1, "name": "AAA", "intervals": 5, "colormap": d3.interpolateReds}, 
-                  {"start": 0.05, "end": 0.07, "name": "B", "intervals": 5, "colormap": d3.interpolateBlues}, 
-                  {"start": 1.8, "end": 2.5, "name": "C", "intervals": 6, "colormap": d3.interpolateGreens} ];
+let paraRange = [{"start": 0, "end": 1, "name": "AAA", "intervals": 5, "colormap": d3.interpolateReds, "subSpaceIntervals": 18}, 
+                  {"start": 0.05, "end": 0.07, "name": "B", "intervals": 5, "colormap": d3.interpolateBlues, "subSpaceIntervals": 12}, 
+                  {"start": 1.8, "end": 2.5, "name": "C", "intervals": 6, "colormap": d3.interpolateGreens, "subSpaceIntervals": 20} ];
 
 let selectArcEventFunc = function(d){
   console.log(d.data.nodeInfo);
@@ -21,4 +21,16 @@ d3.select('#chart-area').append('svg').attr('width', '100').attr('height', '100'
       sunburstUI.unhightlight(this, selected);
     } );
 
+  d3.select('#chart-area').append('svg').attr('width', '100').attr('height', '100').append('circle').attr('cx',70).attr('cy',50).attr('r', 30).attr('fill','red')
+  .on('mouseover', function(){
+    let selected = []
+    for( let i=0; i<100;i++){
+      let s = {};
+      for(let len = 0; len < paraRange.length; len++){
+        s[paraRange[len].name] = Math.random()*(paraRange[len].end - paraRange[len].start) + paraRange[len].start;
+      }
+      selected.push(s);
+    }
+    sunburstUI.setVisitedSubspace(selected);
+  })
 
