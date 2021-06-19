@@ -10,9 +10,15 @@ let selectArcEventFunc = function(d){
 
 let selectParameterTextEventFunc = function(d){
   console.log("Click on parameter text:", d);
-  let invokePara = {};
+  let invokePara = [];
+  let paraName = [];
   paraRange.forEach(function(p){
-    invokePara[p.name] = d[p.name][0];
+    paraName.push( p.name );
+  });
+  d.forEach(p=>{
+    let para = {};
+    paraName.forEach(pname=>para[pname]=p[pname][0]);
+    invokePara.push(para);
   });
   console.log("Invoke para:", invokePara);
 };

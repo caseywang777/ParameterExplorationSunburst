@@ -41,12 +41,20 @@ class SunburstParameterInterface
         this.legendWidth =  this.legendWholeWidth - this.legendMargin.left - this.legendMargin.right;
         this.legendHeight = this.legendWholeHeight - this.legendMargin.top - this.legendMargin.bottom;
 
-        this.svg = d3.select(this.parentElementID).append('g').append('svg').attr('width', this.svgWidth).attr('height', this.svgHeight);
-        this.legendG = this.svg.append('g').attr('transform', `translate(20, 20)` );
-        this.sunburstG = this.svg.append('g').attr('transform', `translate(${this.sunburstRadius}, ${this.sunburstRadius+this.legendWholeHeight})` );
-        this.textG = this.svg.append('g').attr('transform', `translate(0, ${this.sunburstRadius*2+this.legendWholeHeight + 30})` );
+        // this.svg = d3.select(this.parentElementID).append('g').append('svg').attr('width', this.svgWidth).attr('height', this.svgHeight);
+        // this.legendG = this.svg.append('g').attr('transform', `translate(20, 20)` );
+        // this.sunburstG = this.svg.append('g').attr('transform', `translate(${this.sunburstRadius}, ${this.sunburstRadius+this.legendWholeHeight})` );
+        // this.textG = this.svg.append('g').attr('transform', `translate(0, ${this.sunburstRadius*2+this.legendWholeHeight + 30})` );
+        this.tableLayout = d3.select(this.parentElementID).append('table').attr('border', 1);
+        this.legendTr = this.tableLayout.append("tr");
+        this.sunburstTr = this.tableLayout.append("tr");
+        this.textTd = this.tableLayout.append("tr").append("td");
+        this.legendG = this.legendTr.append('svg').attr('width', this.svgWidth).attr('height', this.legendWholeHeight).append('g').attr('transform', `translate(20, 20)` );;
+        this.sunburstG = this.sunburstTr.append('svg').attr('width', this.svgWidth).attr('height', this.sunburstRadius*2).append('g').attr('transform', `translate(${this.sunburstRadius}, ${this.sunburstRadius})` );;
 
         this.legendSubG = null;
+
+        this.tableTdWidth = 70;
 
         this.initVis();
     }
@@ -56,9 +64,7 @@ class SunburstParameterInterface
         
         this.buildLegent();
         this.buildSunburst(false);
-
-        
-
+        this.initTable();
     }
 
     buildLegent(){
@@ -68,24 +74,77 @@ class SunburstParameterInterface
         let legendMargin = vis.legendMargin;
         let legendWidth = vis.legendWidth;
         let legendHeight = vis.legendHeight;
+        let paraNameWidth = 80;
+        let colorSegmentWidth = 80;
+        let colorSegmentHeight = 25;
 
-        vis.parameterInfo.forEach(function(d, i){
-            let paraInterval = (vis.parameterInfo[i].end - vis.parameterInfo[i].start) / vis.parameterInfo[i].intervals;
-            let colorInterval = 1.0 / vis.parameterInfo[i].intervals;
-            let paraColorMap = [];
-            for( let k = 0; k < vis.parameterInfo[i].intervals; k++) paraColorMap.push([vis.parameterInfo[i].start + k*paraInterval, (k+1)*colorInterval ]);
-            d['paraColorMap'] = paraColorMap;
-        });
+        calculateColormapInfo();
+        function calculateColormapInfo(){ //update information to draw color map legend into this.parameterInfo
+            vis.parameterInfo.forEach(function(d, i){
+                let paraInterval = (vis.parameterInfo[i].end - vis.parameterInfo[i].start) / vis.parameterInfo[i].intervals;
+                let colorInterval = 1.0 / vis.parameterInfo[i].intervals;
+                let paraColorMap = [];
+                for( let k = 0; k < vis.parameterInfo[i].intervals; k++) paraColorMap.push([vis.parameterInfo[i].start + k*paraInterval, (k+1)*colorInterval ]);
+                d['paraColorMap'] = paraColorMap;
+            });
+        }
 
+        //add <g>s to contains legend for each parameters
         let legendTextYScaleBand = d3.scaleBand().domain(vis.parameterInfo.map(d=>d.name)).range([0, legendHeight]).paddingInner(0.1).paddingOuter(0.05);
         vis.legendSubG = vis.legendG.selectAll("g").data(vis.parameterInfo).enter().append("g").attr('transform', d=>`translate(0, ${legendTextYScaleBand(d.name)})` );
-        vis.legendSubG.selectAll("text").data(d=>[d.name]).enter().append("text").text(d=>d+":");
-        let colorWidth = 80, colorHeight = 25;
-        let legendColormap = vis.legendSubG.selectAll("rect").data(d=>d.paraColorMap.map(dd=>({'paraColorMap': dd, 'colormap':d.colormap, 'name': d.name})))
-                        .enter().append("rect").attr("width", colorWidth).attr("height", colorHeight).attr("x", (d,i)=>i*colorWidth+colorWidth).attr("y", 0).attr('fill', d=>d.colormap(d.paraColorMap[1]));
-        let legendParaText = vis.legendSubG.selectAll(".paraValueText").data(d=>d.paraColorMap.map(dd=>({'paraColorMap': dd, 'colormap':d.colormap})))
-                            .enter().append("text").attr("x", (d,i)=>i*colorWidth+colorWidth).attr("y", 0).text(d=>(d.paraColorMap[0].toFixed(3)+" ~"));
 
+        //draw the text (parameter name) and arrows at the left hand side
+        vis.legendSubG.selectAll("text").data(d=>[d.name]).enter().append("text").text(d=>d+":").attr("y", 18).attr('font-size', 15);
+        vis.increaseButton = vis.legendSubG.selectAll(".increase").data(d=>[d.name]).enter().append("path").attr("d", d3.symbol().type(d3.symbolTriangle).size("80")()).attr("transform", "translate(25,-5), rotate(90)");
+        vis.decreaseButton = vis.legendSubG.selectAll(".decrease").data(d=>[d.name]).enter().append("path").attr("d", d3.symbol().type(d3.symbolTriangle).size("80")()).attr("transform", "translate(10,-5), rotate(-90)");
+        vis.increaseButton.on("click", d=>{
+            let idx = vis.parameterInfo.findIndex(p=>p.name===d);
+            vis.parameterInfo[idx].intervals ++;
+            calculateColormapInfo();
+            vis.buildSunburst( true );
+            buiildColormapLegend();
+        });
+        vis.decreaseButton.on("click", d=>{
+            let idx = vis.parameterInfo.findIndex(p=>p.name===d);
+            vis.parameterInfo[idx].intervals --;
+            calculateColormapInfo();
+            vis.buildSunburst( true );
+            buiildColormapLegend();
+        });
+       
+        //add color maps
+        buiildColormapLegend();
+        function buiildColormapLegend(){
+            //recalculate color map width (per segment)
+            let maxInterval = vis.parameterInfo.reduce(function(acc, currentValue){
+                if(currentValue.intervals > acc) return currentValue.intervals;
+                return acc;
+            }, 0);
+            colorSegmentWidth = Math.floor( (vis.sunburstRadius*2 - paraNameWidth ) / maxInterval );
+            if( colorSegmentWidth > 80 )colorSegmentWidth = 80;
+        
+            //update color map rects
+            let rects = vis.legendSubG.selectAll("rect").data(d=>d.paraColorMap.map(dd=>({'paraColorMap': dd, 'colormap':d.colormap, 'name': d.name})));
+            rects.exit().remove();
+            let rectsEnter = rects.enter().append('rect');
+            rects = rects.merge(rectsEnter);
+            rects.attr("width", colorSegmentWidth).attr("height", colorSegmentHeight).attr("x", (d,i)=>i*colorSegmentWidth+paraNameWidth-20).attr("y", 0).attr('fill', d=>d.colormap(d.paraColorMap[1]));
+        
+            //update texts on the color map
+            let texts = vis.legendSubG.selectAll(".legendParameterText").data(d=>
+                {
+                    let ret = d.paraColorMap.map(dd=>({'paraColorMap': dd, 'colormap':d.colormap}))
+                    ret.push( {'paraColorMap': [2 * d.paraColorMap[d.paraColorMap.length-1][0] - d.paraColorMap[d.paraColorMap.length-2][0] , -1], 'colormap':d.colormap} )
+                    return ret;
+                }
+            );
+            texts.exit().remove();
+            let textsEnter = texts.enter().append('text');
+            texts = texts.merge(textsEnter);
+            texts.attr("x", (d,i)=>i*colorSegmentWidth+paraNameWidth-15-20).attr("y", -1).text(d=>(d.paraColorMap[0].toFixed(3))).attr('font-size', 12).attr("class", "legendParameterText");
+        }
+
+        // add drag functions to enagle color map order dragging
         let drag = d3.drag().on("start", started).on("drag", dragged).on("end", end);
         let startMouseY, oldYTranslate, selectedParaName, paraNameList, paraNameListOld, oldIdx;
         function started(d){
@@ -99,8 +158,8 @@ class SunburstParameterInterface
         function dragged(d){
             let g = d3.select(this);
             let currentMouseY = d3.event.y;
-            if(currentMouseY < legendMargin.top )currentMouseY = 0 + legendMargin.top - 10;
-            if(currentMouseY > legendHeight)currentMouseY = legendHeight;
+            if(currentMouseY < legendMargin.top )currentMouseY = 0 + legendMargin.top - 15;
+            if(currentMouseY > legendHeight)currentMouseY = legendHeight - 10;
             let dy = currentMouseY - startMouseY;
             g.attr('transform', `translate(0, ${oldYTranslate + dy})`);
             let bandwidth = legendTextYScaleBand.bandwidth();
@@ -119,17 +178,25 @@ class SunburstParameterInterface
             });
         }
         function end(d){
+            let changed = false;
+
+            vis.parameterInfo.forEach((d,i)=>{
+                if( !(d.name === paraNameList[i]) )changed = true;
+            })
+
             legendTextYScaleBand = d3.scaleBand().domain(paraNameList).range([0, legendHeight]).paddingInner(0.1).paddingOuter(0.05);
             vis.legendSubG.transition().duration("50").attr('transform', function(d){
                 return `translate(0, ${legendTextYScaleBand(d.name)})`;
             });
 
-            //Update what we have to update when the order of parameter change and recreate the sunburst
-            let parameterInfoDic = {};
-            vis.parameterInfo.forEach(d=>parameterInfoDic[d.name]=d);
-            vis.parameterInfo = [];
-            paraNameList.forEach(d=>vis.parameterInfo.push(parameterInfoDic[d]));
-            vis.buildSunburst( true );
+            if(changed){
+                //Update what we have to update when the order of parameter change and recreate the sunburst
+                let parameterInfoDic = {};
+                vis.parameterInfo.forEach(d=>parameterInfoDic[d.name]=d);
+                vis.parameterInfo = [];
+                paraNameList.forEach(d=>vis.parameterInfo.push(parameterInfoDic[d]));
+                vis.buildSunburst( true );
+            }
         }
         vis.legendSubG.call(drag);
 
@@ -274,37 +341,72 @@ class SunburstParameterInterface
                             vis.legendSubG.selectAll('rect').attr('stroke', 'white').attr('stroke-width',0);
                         })
         
-        this.pathBackground.on('click', showSubspaceText);
-        this.pathMain.on('click', showSubspaceText);
-        function showSubspaceText(d){
+        // this.pathBackground.on('click', showSubspaceText);
+        // this.pathMain.on('click', showSubspaceText);
+        this.pathBackground.on('click', updateParameterTextTable);
+        this.pathMain.on('click', updateParameterTextTable);
+        function updateParameterTextTable(d){
+            console.log(d)
             if( Object.keys(d.data.nodeInfo).length === vis.parameterInfo.length ){ //this function only works on leaf
                 let ret = [];
                 let dic = d.data.subSpaceIndexInfo;
                 vis.listCombinationSubspacesIndex(ret, Object.keys(dic), dic, 0, {});
                 let nonVisitedPara = [];
+                let visitedPara = [];
                 ret.forEach(function(d){
                     let idx1D =vis.subspacIdxDicToSubspace1DIndex(d);
                     if(!vis.subSpaceData[idx1D].visit) nonVisitedPara.push( vis.subSpaceData[idx1D] );
+                    else visitedPara.push( vis.subSpaceData[idx1D] );
+                });
+
+                nonVisitedPara.forEach(d=>(d.selected=false));
+
+                let trs = vis.scrollTableNonVisit.selectAll('tr').data(nonVisitedPara);
+                trs.exit().remove();
+                let trEnter = trs.enter().append('tr');
+                trs = trs.merge(trEnter);
+
+                trs.on('click', function(d){
+                    if(d.selected == false) d3.select(this).attr('bgcolor', 'yellow');
+                    else d3.select(this).attr('bgcolor', 'white');
+                    d.selected = !d.selected;
+                    
+                });
+                let paraOrderName = vis.paraOrderForSubspace.map(d=>d.name);
+                let tds = trs.selectAll("td").data(d=>{
+                    let para = [];
+                    paraOrderName.forEach(pName=>para.push(d[pName][0]));
+                    return para;
+                });
+                tds.exit().remove();
+                let tdEnter = tds.enter().append('td');
+                tds = tds.merge(tdEnter);
+                tds.text(d=>d.toFixed(3)).attr('width', vis.tableTdWidth);
+
+                vis.runButton.on('click', function(){
+                    vis.selectParaTextEventFunc( nonVisitedPara.filter(d=>d.selected) );
                 });
                 
-                let texts = vis.textG.selectAll('.parameterText').data(nonVisitedPara);
-                texts.exit().remove();
-                let textEnter = texts.enter().append('text').text(formatText).attr('x', 0).attr('y', (d,i)=>i*20).attr('class', 'parameterText');
-                texts.text(formatText).attr('x', 0).attr('y', (d,i)=>i*20).attr('class', 'parameterText');
-                texts = texts.merge(textEnter);
+                // texts.on('click', vis.selectParaTextEventFunc);
 
-                function formatText(d){ 
-                    let t = Object.keys(d).reduce(function(acc, currentValue){
-                        if( ! ( currentValue === 'visit' ) )
-                            return acc + currentValue + ": " + d[currentValue][0].toFixed(3) + ", "
-                        else return acc;
-                    }, "[");
-                    t = t.slice(0, -2);
-                    t += ']';
-                    return t;
-                }
+                console.log(visitedPara)
+                let trsVisit = vis.scrollTableVisit.selectAll('tr').data(visitedPara);
+                trsVisit.exit().remove();
+                let trEnterVisit = trsVisit.enter().append('tr');
+                trsVisit = trsVisit.merge(trEnterVisit);
 
-                texts.on('click', vis.selectParaTextEventFunc);
+                let tdsVisit = trsVisit.selectAll("td").data(d=>{
+                    let para = [];
+                    paraOrderName.forEach(pName=>para.push(d[pName][0]));
+                    // console.log(para)
+                    return para;
+                });
+                tdsVisit.exit().remove();
+                let tdEnterVisit = tdsVisit.enter().append('td');
+                tdsVisit = tdsVisit.merge(tdEnterVisit);
+                tdsVisit.text(d=>d.toFixed(3)).attr('width', vis.tableTdWidth);
+                
+                // texts.on('click', vis.selectParaTextEventFunc);
             }
         }
 
@@ -325,6 +427,28 @@ class SunburstParameterInterface
         let totalVisitRatio = nVisitedSubspace / vis.subSpaceData.length;
         this.totalSubSpaceRatioText = this.nodes.append("text").attr("x",0).attr("y",0).text((totalVisitRatio*100).toFixed(2) + "%").attr('font-size', 25).attr('text-anchor', 'middle').attr('dx',5).attr('dy', 5);
         this.nodes.transition().ease(d3.easeExp).duration(1000).attr('transform', 'scale(1)');
+    }
+
+    initTable(){
+        const vis = this;
+
+        let textTdTableTr = this.textTd.append("table").append('tr');
+        this.VisitTable = textTdTableTr.append('td').append('table');
+        this.nonVisitTable = textTdTableTr.append('td').append('table');
+
+        this.scrollTheadVisit = this.VisitTable.append("thead");
+        this.scrollTheadVisit.append("tr").append("th").attr('colspan', vis.parameterInfo.length).text('Visited Parameters');
+        this.scrollHeadTrVisit = this.scrollTheadVisit.append("tr");
+        this.scrollHeadTrVisit.selectAll("th").data(this.paraOrderForSubspace).enter().append("th").attr('width', vis.tableTdWidth).text(d=>d.name);
+        this.scrollTableVisit = this.VisitTable.append("tbody").append('tr').append('td').attr('colspan', 3).append('div').attr('class', 'scrollable').append('table');
+        this.VisitTable.append('tfoot').append('tr').append('td').text("&nbsp;").style('opacity', 0);
+
+        this.scrollTheadNonVisit = this.nonVisitTable.append("thead");
+        this.scrollTheadNonVisit.append("tr").append("th").attr('colspan', vis.parameterInfo.length).text('Non-Visited Parameters');
+        this.scrollHeadTrNonVisit = this.scrollTheadNonVisit.append("tr");
+        this.scrollHeadTrNonVisit.selectAll("th").data(this.paraOrderForSubspace).enter().append("th").attr('width', vis.tableTdWidth).text(d=>d.name);
+        this.scrollTableNonVisit = this.nonVisitTable.append("tbody").append('tr').append('td').attr('colspan', 3).append('div').attr('class', 'scrollable').append('table');
+        this.runButton = this.nonVisitTable.append('tfoot').append('tr').append('td').append('button').text('Run');
     }
 
     createTree(paraRange, parent, paraIndex, nodeInfo, subSpaceIndexInfo){
