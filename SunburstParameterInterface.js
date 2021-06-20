@@ -3,7 +3,7 @@ class SunburstParameterInterface
     static subSpaceData = [];
 
     // _parentElementID: ID (with #) of the html tag (usually a <div>) to contain this TF interface
-    //_visWidth, _visHeight: width and height in pixel of this interface
+    //_visWidth: width in pixel of this interface
     //_sunburstRadius: the sunburst radius
     //_parameterInfo: simulation parameter information, min max range and its name, colormap, number of intervals
     //                Example:  _parameterInfo = [{"start": 0, "end": 1, "name": "A", "intervals": 5, "colormap": d3.interpolateReds}, 
@@ -11,20 +11,27 @@ class SunburstParameterInterface
     //                                             {"start": 1.8, "end": 2.5, "name": "C", "intervals": 5, "colormap": d3.interpolateGreens} ];
     //_headRatio: the ratio of head of each arc, example: 0.2
     //_selectArcEventFunc: invoke this function when user clicks on a arc
-    constructor(_parentElementID, _visWidth, _visHeight, _sunburstRadius, 
+    constructor(_parentElementID, _visWidth, _sunburstRadius, _sunburstDataInfoRadius,
                 _parameterInfo, _dataInfoNameColormap, _dataInfo,
                 _headRatio, _selectArcEventFunc, _selectParaTextEventFunc){
         const vis = this;
         this.parentElementID = _parentElementID;
         this.svgWidth = _visWidth;
-        this.svgHeight = _visHeight;
         this.sunburstRadius = _sunburstRadius;
+        this.sunburstDataInfoRadius = _sunburstDataInfoRadius;
         this.parameterInfo = _parameterInfo;
         this.dataInfoNameColormap = _dataInfoNameColormap;
         this.dataInfo = _dataInfo;
         this.headRatio = _headRatio;
         this.selectArcEventFunc = _selectArcEventFunc;
         this.selectParaTextEventFunc = _selectParaTextEventFunc;
+
+        this.selectedDataInfo = {...this.dataInfoNameColormap};
+        Object.keys(this.selectedDataInfo).forEach(d=>this.selectedDataInfo[d]=true);
+        this.enalbeDataInfo = [];
+        Object.keys(this.selectedDataInfo).forEach(d=>{
+            if( this.selectedDataInfo[d])this.enalbeDataInfo.push(d);
+        });
 
         this.paraOrderForSubspace = [];
         this.parameterInfo.forEach(function(d,i){
@@ -52,14 +59,41 @@ class SunburstParameterInterface
         // this.textG = this.svg.append('g').attr('transform', `translate(0, ${this.sunburstRadius*2+this.legendWholeHeight + 30})` );
         this.tableLayout = d3.select(this.parentElementID).append('table').attr('border', 1);
         this.legendTr = this.tableLayout.append("tr");
+        this.dataInfoSelectTable = this.tableLayout.append("tr").append("td").append("table").attr('border', 1);
+        let currentTr;
+        Object.keys(this.dataInfoNameColormap).forEach((d,i)=>{
+            if( i% 6 == 0 )currentTr = this.dataInfoSelectTable.append("tr");
+            let td = currentTr.append("td").attr('width', 50);
+            let dataInfoSelection = td.append("input")
+                        .attr("checked", true)
+                        .attr("id", "CheckBox_"+d)
+                        .attr("type", "checkbox");
+            dataInfoSelection.on('click', clickCheckBox);
+            td.append('text').text(d);
+        });
+
+        function clickCheckBox(){
+            let checkStatus = d3.select(this).property("checked");
+            let dataInfoName = d3.select(this).attr("id").split("_")[1];
+            vis.selectedDataInfo[dataInfoName] = checkStatus;
+            vis.enalbeDataInfo = [];
+            Object.keys(vis.selectedDataInfo).forEach(d=>{
+                if( vis.selectedDataInfo[d])vis.enalbeDataInfo.push(d);
+            });
+            vis.dataInfoG.selectAll("*").remove();
+            vis.buildDataInfoAroundSunburst();
+        }
+        
         this.sunburstTr = this.tableLayout.append("tr");
         this.textTd = this.tableLayout.append("tr").append("td");
         this.legendG = this.legendTr.append('svg').attr('width', this.svgWidth).attr('height', this.legendWholeHeight).append('g').attr('transform', `translate(20, 20)` );;
-        this.sunburstG = this.sunburstTr.append('svg').attr('width', this.svgWidth).attr('height', this.sunburstRadius*2).append('g').attr('transform', `translate(${this.sunburstRadius}, ${this.sunburstRadius})` );;
+        this.sunburstG = this.sunburstTr.append('svg').attr('width', this.svgWidth).attr('height', this.sunburstRadius*2+this.sunburstDataInfoRadius*2)
+                                    .append('g').attr('transform', `translate(${this.sunburstRadius+this.sunburstDataInfoRadius}, ${this.sunburstRadius+this.sunburstDataInfoRadius})` );
 
         this.legendSubG = null;
 
         this.tableTdWidth = 70;
+        this.ratioDatInfoRadius = 0.07;
 
         this.initVis();
     }
@@ -131,7 +165,7 @@ class SunburstParameterInterface
                 if(currentValue.intervals > acc) return currentValue.intervals;
                 return acc;
             }, 0);
-            colorSegmentWidth = Math.floor( (vis.sunburstRadius*2 - paraNameWidth ) / maxInterval );
+            colorSegmentWidth = Math.floor( (vis.svgWidth - paraNameWidth ) / maxInterval );
             if( colorSegmentWidth > 80 )colorSegmentWidth = 80;
         
             //update color map rects
@@ -331,6 +365,8 @@ class SunburstParameterInterface
                                 return vis.parameterInfo[idx]['colormap'](value2Colormap);                                
                             })
                             .attr('stroke', 'white');
+        this.dataInfoG = this.nodes.append('g');
+        this.buildDataInfoAroundSunburst();
         
         this.pathHead.on("click", vis.selectArcEventFunc);
 
@@ -357,7 +393,6 @@ class SunburstParameterInterface
         this.pathBackground.on('click', updateParameterTextTable);
         this.pathMain.on('click', updateParameterTextTable);
         function updateParameterTextTable(d){
-            console.log(d)
             if( Object.keys(d.data.nodeInfo).length === vis.parameterInfo.length ){ //this function only works on leaf
                 let ret = [];
                 let dic = d.data.subSpaceIndexInfo;
@@ -400,7 +435,6 @@ class SunburstParameterInterface
                 
                 // texts.on('click', vis.selectParaTextEventFunc);
 
-                console.log(visitedPara)
                 let trsVisit = vis.scrollTableVisit.selectAll('tr').data(visitedPara);
                 trsVisit.exit().remove();
                 let trEnterVisit = trsVisit.enter().append('tr');
@@ -409,7 +443,6 @@ class SunburstParameterInterface
                 let tdsVisit = trsVisit.selectAll("td").data(d=>{
                     let para = [];
                     paraOrderName.forEach(pName=>para.push(d[pName][0]));
-                    // console.log(para)
                     return para;
                 });
                 tdsVisit.exit().remove();
@@ -442,6 +475,44 @@ class SunburstParameterInterface
         // let nCombInterval
 
         this.nodes.transition().ease(d3.easeExp).duration(1000).attr('transform', 'scale(1)');
+    }
+
+    buildDataInfoAroundSunburst(){
+        const vis = this;
+        this.enalbeDataInfo.forEach((dInfoName, dInfoNameIdx)=>{
+            this.arcGeneratorDataInfo = d3.arc()
+                                        .startAngle(function(d) { return d.x0; })
+                                        .endAngle(function(d) { return d.x1; })
+                                        .innerRadius(function(d) { 
+                                            if(d.id === "root" || Object.keys(d.data.nodeInfo).length < vis.parameterInfo.length) return 0;
+                                            else return d.y1 + ((d.y1 - d.y0)*vis.ratioDatInfoRadius * dInfoNameIdx); 
+                                            
+                                        })
+                                        .outerRadius(function(d) { 
+                                            if(d.id === "root" || Object.keys(d.data.nodeInfo).length < vis.parameterInfo.length) return 0;
+                                            else return d.y1  + ((d.y1 - d.y0)*vis.ratioDatInfoRadius * ( dInfoNameIdx + 1 )); 
+                                        });
+            let vExtent = d3.extent(SunburstParameterInterface.subSpaceData, d=>d['dataInfo'][dInfoName]);
+            let colorScale = d3.scaleLinear().domain(vExtent).range([0,1]);
+
+            let tip = d3.tip().attr('class', 'd3-tip')
+                        .html(function(d){
+                            let value = vis.computeSubspaceDataInfo(d.data.subSpaceIndexInfo, dInfoName);
+                            return dInfoName + ": " + value.toFixed(3);
+                        }); 
+            let path = this.dataInfoG.append('path')
+                    .attr('d', vis.arcGeneratorDataInfo )
+                    .attr('fill', function(d){
+                        if( d.id ==="root" || Object.keys(d.data.nodeInfo).length < vis.parameterInfo.length )return '';//what it return does not matter
+                        else{
+                            let value = vis.computeSubspaceDataInfo(d.data.subSpaceIndexInfo, dInfoName);
+                            return vis.dataInfoNameColormap[dInfoName](colorScale(value));
+                        }
+                    })
+                    .attr('stroke', 'white');
+            path.call(tip);
+            path.on('mouseover', tip.show).on('mouseout', tip.hide);
+        });
     }
 
     initTable(){
@@ -575,6 +646,24 @@ class SunburstParameterInterface
             if( SunburstParameterInterface.subSpaceData[idx1D].visit === true)visitCount++;
         });
         return visitCount;
+    }
+
+    computeSubspaceDataInfo(dic, dataName){
+        //dic example: let dic = {"AAA": [2, 5], "B": [1, 3], "C": [5, 8]};
+        this.paraOrderForSubspace.forEach(function(d){
+            if( !(d.name in dic ) ){
+                dic[d.name] = [0, d.nIntervals-1];
+            }
+        });
+        let ret = [];
+        this.listCombinationSubspacesIndex(ret, Object.keys(dic), dic, 0, {});
+        let max = -99999999999;
+        ret.forEach((d)=>{
+            let idx1D = this.subspacIdxDicToSubspace1DIndex(d);
+            let v = SunburstParameterInterface.subSpaceData[idx1D]['dataInfo'][dataName];
+            if( v > max ) max = v;
+        });
+        return max;
     }
 
     hightlight( element, selected ){

@@ -25,8 +25,8 @@ let selectParameterTextEventFunc = function(d){
 
 
 //create simulation data information
-let dataInfoNameColormap = {'v0': d3.interpolateReds,
-                            'v1': d3.interpolateReds,
+let dataInfoNameColormap = {'v0': d3.interpolateBlues,
+                            'v1': d3.interpolateBlues,
                             'v2': d3.interpolateReds,
                             'v3': d3.interpolateReds,
                             'v4': d3.interpolateReds,
@@ -40,13 +40,13 @@ let subspaceInfo = SunburstParameterInterface.GetSubspaceSetting(paraRange);
 subspaceInfo.forEach(d=>{
   let dtInfo = {};
   Object.keys(dataInfoNameColormap).forEach(k=>{
-    dtInfo[k] = Math.random();
+    dtInfo[k] = Math.random() * d['B'][0];
   });
   dataInfo.push( dtInfo );
 });
 
 //create the UI object
-const sunburstUI = new SunburstParameterInterface("#chart-area", 1000, 1000, 250, 
+const sunburstUI = new SunburstParameterInterface("#chart-area", 600, 250, 50,
                                                   paraRange, dataInfoNameColormap, dataInfo, 
                                                   0.15, selectArcEventFunc, selectParameterTextEventFunc);
 
