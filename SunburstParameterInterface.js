@@ -1,5 +1,7 @@
 class SunburstParameterInterface
 {
+    static subSpaceData = [];
+
     // _parentElementID: ID (with #) of the html tag (usually a <div>) to contain this TF interface
     //_visWidth, _visHeight: width and height in pixel of this interface
     //_sunburstRadius: the sunburst radius
@@ -32,8 +34,7 @@ class SunburstParameterInterface
             vis.paraOrderForSubspace.push(dic);
         });
         
-        this.subSpaceData = [];
-        this.createSubspaceList(this.parameterInfo, {}, 0);
+        SunburstParameterInterface.createSubspaceList(this.parameterInfo, {}, 0);
 
         this.legendWholeWidth = this.sunburstRadius*2, 
         this.legendWholeHeight = 150;
@@ -57,6 +58,10 @@ class SunburstParameterInterface
         this.tableTdWidth = 70;
 
         this.initVis();
+    }
+
+    static GetSubspaceSetting(){
+        return this.subSpaceData;
     }
 
     initVis(){
@@ -355,8 +360,8 @@ class SunburstParameterInterface
                 let visitedPara = [];
                 ret.forEach(function(d){
                     let idx1D =vis.subspacIdxDicToSubspace1DIndex(d);
-                    if(!vis.subSpaceData[idx1D].visit) nonVisitedPara.push( vis.subSpaceData[idx1D] );
-                    else visitedPara.push( vis.subSpaceData[idx1D] );
+                    if(!SunburstParameterInterface.subSpaceData[idx1D].visit) nonVisitedPara.push( SunburstParameterInterface.subSpaceData[idx1D] );
+                    else visitedPara.push( SunburstParameterInterface.subSpaceData[idx1D] );
                 });
 
                 nonVisitedPara.forEach(d=>(d.selected=false));
@@ -420,12 +425,16 @@ class SunburstParameterInterface
         this.pathBackground.call(tip);
         this.pathBackground.on('mouseover', tip.show).on('mouseout', tip.hide);
         //// calculate visited ratio of all subspaces
-        let nVisitedSubspace = vis.subSpaceData.reduce((acc, currentValue)=>{
+        let nVisitedSubspace = SunburstParameterInterface.subSpaceData.reduce((acc, currentValue)=>{
             if(currentValue.visit)acc++;
             return acc;
         }, 0)
-        let totalVisitRatio = nVisitedSubspace / vis.subSpaceData.length;
+        let totalVisitRatio = nVisitedSubspace / SunburstParameterInterface.subSpaceData.length;
         this.totalSubSpaceRatioText = this.nodes.append("text").attr("x",0).attr("y",0).text((totalVisitRatio*100).toFixed(2) + "%").attr('font-size', 25).attr('text-anchor', 'middle').attr('dx',5).attr('dy', 5);
+
+        ////// donut chart: sensitivity, uncertainty, value of each varialbe.
+        // let nCombInterval
+
         this.nodes.transition().ease(d3.easeExp).duration(1000).attr('transform', 'scale(1)');
     }
 
@@ -481,7 +490,7 @@ class SunburstParameterInterface
         }
     }
 
-    createSubspaceList(paraRange, parents, paraIndex){
+    static createSubspaceList(paraRange, parents, paraIndex){
         let interval = (paraRange[paraIndex].end - paraRange[paraIndex].start) / paraRange[paraIndex].subSpaceIntervals;
         
         for( let i = 0; i < paraRange[paraIndex].subSpaceIntervals; i ++){
@@ -494,9 +503,9 @@ class SunburstParameterInterface
 
             if( paraIndex === paraRange.length - 1 ){//leaf node
                 currentNodeInfo['visit'] = false;
-                this.subSpaceData.push(currentNodeInfo);
+                SunburstParameterInterface.subSpaceData.push(currentNodeInfo);
             }else{
-                this.createSubspaceList(paraRange, currentNodeInfo, paraIndex+1);
+                SunburstParameterInterface.createSubspaceList(paraRange, currentNodeInfo, paraIndex+1);
             }
         }
     }
@@ -557,7 +566,7 @@ class SunburstParameterInterface
         let visitCount = 0;
         ret.forEach((d)=>{
             let idx1D = this.subspacIdxDicToSubspace1DIndex(d);
-            if( this.subSpaceData[idx1D].visit === true)visitCount++;
+            if( SunburstParameterInterface.subSpaceData[idx1D].visit === true)visitCount++;
         });
         return visitCount;
     }
@@ -598,15 +607,15 @@ class SunburstParameterInterface
         const vis = this;
         visitParas.forEach(d=>{
             let idx1D = this.paraDictionaryToSubspaceIndex(d);
-            this.subSpaceData[idx1D].visit = true;
+            SunburstParameterInterface.subSpaceData[idx1D].visit = true;
         })
 
         //// calculate visited ratio of all subspaces
-        let nVisitedSubspace = vis.subSpaceData.reduce((acc, currentValue)=>{
+        let nVisitedSubspace = SunburstParameterInterface.subSpaceData.reduce((acc, currentValue)=>{
             if(currentValue.visit)acc++;
             return acc;
         }, 0)
-        let totalVisitRatio = nVisitedSubspace / vis.subSpaceData.length;
+        let totalVisitRatio = nVisitedSubspace / SunburstParameterInterface.subSpaceData.length;
         vis.totalSubSpaceRatioText.text((totalVisitRatio*100).toFixed(2) + "%");
         vis.pathMain.attr('d', vis.arcGeneratorMain); 
     }

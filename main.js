@@ -26,6 +26,28 @@ let selectParameterTextEventFunc = function(d){
 const sunburstUI = new SunburstParameterInterface("#chart-area", 1000, 1000, 250, 
                                                   paraRange, 0.15, selectArcEventFunc, selectParameterTextEventFunc);
 
+// let dataInfoName = [{'name': 'v0', 'colormap': d3.interpolateReds}, 
+//                     {'name': 'v1', 'colormap': d3.interpolateReds}, 
+//                     {'name': 'v2', 'colormap': d3.interpolateReds}, 
+//                     {'name': 'v3', 'colormap': d3.interpolateReds}, 
+//                     {'name': 'v4', 'colormap': d3.interpolateReds}, 
+//                     {'name': 'v5', 'colormap': d3.interpolateReds}, 
+//                     {'name': 'v6', 'colormap': d3.interpolateReds}, 
+//                     {'name': 'v7', 'colormap': d3.interpolateReds}, 
+//                     {'name': 'v8', 'colormap': d3.interpolateReds}, 
+//                     {'name': 'v9', 'colormap': d3.interpolateReds} ];
+// let dataInfo = [];
+// let subspaceInfo = sunburstUI.getSubspaceSetting();
+// console.log(subspaceInfo);
+// subspaceInfo.forEach(d=>{
+//   let dtInfo = {};
+//   dataInfoName.forEach(k=>{
+//     dtInfo[k.name] = Math.random();
+//   });
+//   dataInfo.push( dtInfo );
+// });
+// console.log(dataInfo);
+
 //// test for mouse over the small circle
 let selected = [{"AAA": 0.5, "B": 0.06, "C":2}, {"AAA": 0.8, "B": 0.06, "C":2}];
 d3.select('#chart-area').append('svg').attr('width', '100').attr('height', '100').append('circle').attr('cx',50).attr('cy',50).attr('r', 10)
