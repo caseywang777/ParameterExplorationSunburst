@@ -23,30 +23,32 @@ let selectParameterTextEventFunc = function(d){
   console.log("Invoke para:", invokePara);
 };
 
-const sunburstUI = new SunburstParameterInterface("#chart-area", 1000, 1000, 250, 
-                                                  paraRange, 0.15, selectArcEventFunc, selectParameterTextEventFunc);
 
-// let dataInfoName = [{'name': 'v0', 'colormap': d3.interpolateReds}, 
-//                     {'name': 'v1', 'colormap': d3.interpolateReds}, 
-//                     {'name': 'v2', 'colormap': d3.interpolateReds}, 
-//                     {'name': 'v3', 'colormap': d3.interpolateReds}, 
-//                     {'name': 'v4', 'colormap': d3.interpolateReds}, 
-//                     {'name': 'v5', 'colormap': d3.interpolateReds}, 
-//                     {'name': 'v6', 'colormap': d3.interpolateReds}, 
-//                     {'name': 'v7', 'colormap': d3.interpolateReds}, 
-//                     {'name': 'v8', 'colormap': d3.interpolateReds}, 
-//                     {'name': 'v9', 'colormap': d3.interpolateReds} ];
-// let dataInfo = [];
-// let subspaceInfo = sunburstUI.getSubspaceSetting();
-// console.log(subspaceInfo);
-// subspaceInfo.forEach(d=>{
-//   let dtInfo = {};
-//   dataInfoName.forEach(k=>{
-//     dtInfo[k.name] = Math.random();
-//   });
-//   dataInfo.push( dtInfo );
-// });
-// console.log(dataInfo);
+//create simulation data information
+let dataInfoNameColormap = {'v0': d3.interpolateReds,
+                            'v1': d3.interpolateReds,
+                            'v2': d3.interpolateReds,
+                            'v3': d3.interpolateReds,
+                            'v4': d3.interpolateReds,
+                            'v5': d3.interpolateReds,
+                            'v6': d3.interpolateReds,
+                            'v7': d3.interpolateReds,
+                            'v8': d3.interpolateReds,
+                            'v9': d3.interpolateReds };
+let dataInfo = [];
+let subspaceInfo = SunburstParameterInterface.GetSubspaceSetting(paraRange);
+subspaceInfo.forEach(d=>{
+  let dtInfo = {};
+  Object.keys(dataInfoNameColormap).forEach(k=>{
+    dtInfo[k] = Math.random();
+  });
+  dataInfo.push( dtInfo );
+});
+
+//create the UI object
+const sunburstUI = new SunburstParameterInterface("#chart-area", 1000, 1000, 250, 
+                                                  paraRange, dataInfoNameColormap, dataInfo, 
+                                                  0.15, selectArcEventFunc, selectParameterTextEventFunc);
 
 //// test for mouse over the small circle
 let selected = [{"AAA": 0.5, "B": 0.06, "C":2}, {"AAA": 0.8, "B": 0.06, "C":2}];

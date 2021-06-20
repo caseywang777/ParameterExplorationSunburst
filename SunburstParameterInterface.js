@@ -12,14 +12,16 @@ class SunburstParameterInterface
     //_headRatio: the ratio of head of each arc, example: 0.2
     //_selectArcEventFunc: invoke this function when user clicks on a arc
     constructor(_parentElementID, _visWidth, _visHeight, _sunburstRadius, 
-                _parameterInfo, _headRatio,
-                _selectArcEventFunc, _selectParaTextEventFunc){
+                _parameterInfo, _dataInfoNameColormap, _dataInfo,
+                _headRatio, _selectArcEventFunc, _selectParaTextEventFunc){
         const vis = this;
         this.parentElementID = _parentElementID;
         this.svgWidth = _visWidth;
         this.svgHeight = _visHeight;
         this.sunburstRadius = _sunburstRadius;
         this.parameterInfo = _parameterInfo;
+        this.dataInfoNameColormap = _dataInfoNameColormap;
+        this.dataInfo = _dataInfo;
         this.headRatio = _headRatio;
         this.selectArcEventFunc = _selectArcEventFunc;
         this.selectParaTextEventFunc = _selectParaTextEventFunc;
@@ -34,7 +36,9 @@ class SunburstParameterInterface
             vis.paraOrderForSubspace.push(dic);
         });
         
+        SunburstParameterInterface.subSpaceData = [];
         SunburstParameterInterface.createSubspaceList(this.parameterInfo, {}, 0);
+        SunburstParameterInterface.subSpaceData.forEach((d, i)=>d.dataInfo = this.dataInfo[i]); //merge SunburstParameterInterface.subSpaceData, this.dataInfo
 
         this.legendWholeWidth = this.sunburstRadius*2, 
         this.legendWholeHeight = 150;
@@ -60,8 +64,10 @@ class SunburstParameterInterface
         this.initVis();
     }
 
-    static GetSubspaceSetting(){
-        return this.subSpaceData;
+    static GetSubspaceSetting(_parameterInfo){
+        SunburstParameterInterface.subSpaceData = [];
+        SunburstParameterInterface.createSubspaceList(_parameterInfo, {}, 0);
+        return SunburstParameterInterface.subSpaceData;
     }
 
     initVis(){
