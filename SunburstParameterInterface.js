@@ -411,6 +411,7 @@ class SunburstParameterInterface
                 trs.exit().remove();
                 let trEnter = trs.enter().append('tr');
                 trs = trs.merge(trEnter);
+                trs.attr('bgcolor', 'white');
 
                 trs.on('click', function(d){
                     if(d.selected == false) d3.select(this).attr('bgcolor', 'yellow');
