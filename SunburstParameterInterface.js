@@ -121,7 +121,7 @@ class SunburstParameterInterface
         let legendHeight = vis.legendHeight;
         let paraNameWidth = 80;
         let colorSegmentWidth = 80;
-        let colorSegmentHeight = 25;
+        vis.colorSegmentHeight = 13;
 
         calculateColormapInfo();
         function calculateColormapInfo(){ //update information to draw color map legend into this.parameterInfo
@@ -173,7 +173,7 @@ class SunburstParameterInterface
             rects.exit().remove();
             let rectsEnter = rects.enter().append('rect');
             rects = rects.merge(rectsEnter);
-            rects.attr("width", colorSegmentWidth).attr("height", colorSegmentHeight).attr("x", (d,i)=>i*colorSegmentWidth+paraNameWidth-20).attr("y", 0).attr('fill', d=>d.colormap(d.paraColorMap[1]));
+            rects.attr("width", colorSegmentWidth).attr("height", vis.colorSegmentHeight).attr("x", (d,i)=>i*colorSegmentWidth+paraNameWidth-20).attr("y", 0).attr('fill', d=>d.colormap(d.paraColorMap[1]));
         
             //update texts on the color map
             let texts = vis.legendSubG.selectAll(".legendParameterText").data(d=>
@@ -186,7 +186,7 @@ class SunburstParameterInterface
             texts.exit().remove();
             let textsEnter = texts.enter().append('text');
             texts = texts.merge(textsEnter);
-            texts.attr("x", (d,i)=>i*colorSegmentWidth+paraNameWidth-15-20).attr("y", -1).text(d=>(d.paraColorMap[0].toFixed(3))).attr('font-size', 12).attr("class", "legendParameterText");
+            texts.attr("x", (d,i)=>i*colorSegmentWidth+paraNameWidth-15-20).attr("y", -2).text(d=>(d.paraColorMap[0].toFixed(3))).attr('font-size', 12).attr("class", "legendParameterText");
         }
 
         // add drag functions to enagle color map order dragging
@@ -281,6 +281,18 @@ class SunburstParameterInterface
                                     else return d.y1; 
                                 });
 
+        this.arcGeneratorTopHightlight = d3.arc()
+                                .startAngle(function(d) { return d.x0; })
+                                .endAngle(function(d) { return d.x1; })
+                                .innerRadius(function(d) { 
+                                    if(d.id === "root") return 0;
+                                    else return d.y0; 
+                                })
+                                .outerRadius(function(d) { 
+                                    if(d.id === "root") return 0;
+                                    else return d.y1; 
+                                });
+
         this.arcGeneratorMain = d3.arc()
                                 .startAngle(function(d) { return d.x0; })
                                 .endAngle(function(d) { return d.x1; })
@@ -337,7 +349,8 @@ class SunburstParameterInterface
                                 return 'gray'
                                 })
                             .attr('opacity', 1.0)
-                            .attr('stroke', 'white');
+                            .attr('stroke', 'white')
+                            .attr('stroke-width', 0.1);
 
         this.pathMain = this.nodes.append('path')
                             .attr('d', vis.arcGeneratorMain)
@@ -351,7 +364,8 @@ class SunburstParameterInterface
                                 return vis.parameterInfo[idx]['colormap'](value2Colormap);                                
                             })
                             .attr('opacity', 1.0)
-                            .attr('stroke', 'white');
+                            .attr('stroke', 'white')
+                            .attr('stroke-width', 0.1);
 
         this.pathHead = this.nodes.append('path')
                             .attr('d', vis.arcGeneratorHead)
@@ -364,7 +378,21 @@ class SunburstParameterInterface
                                 let value2Colormap = vis.parameterInfo[idx]['paraColorMap'][d.data.paraIndex][1];
                                 return vis.parameterInfo[idx]['colormap'](value2Colormap);                                
                             })
-                            .attr('stroke', 'white');
+                            .attr('stroke', 'white')
+                            .attr('stroke-width', 0.0);
+
+        this.pathTopHightlighgt = this.nodes.append('path')
+                                        .attr('d', vis.arcGeneratorTopHightlight)
+                                        .attr('fill', 'none')
+                                        .attr('stroke-width', 3.0)
+                                        .attr('display', 'none');
+
+        this.pathTopHightlighgtOne = this.nodes.append('path')
+                                        .attr('d', vis.arcGeneratorTopHightlight)
+                                        .attr('fill', 'none')
+                                        .attr('stroke-width', 3.0)
+                                        .attr('display', 'none');
+
         this.dataInfoG = this.nodes.append('g');
         this.buildDataInfoAroundSunburst();
         
@@ -374,18 +402,23 @@ class SunburstParameterInterface
                                                 let arc = d3.select(this);
                                                 arc.attr('stroke', 'red').attr('stroke-width', 2);
                                                 let arcData = arc.data()[0].data.nodeInfo;
-                                                vis.legendSubG.selectAll('rect').attr('stroke', function(d){
-                                                    if( (d.name in arcData) && Math.abs( arcData[d.name][0] - d.paraColorMap[0] ) < 0.00001 ) return 'magenta';
-                                                    else return 'white';
-                                                }).attr('stroke-width', function(d){
-                                                    if( (d.name in arcData) && Math.abs( arcData[d.name][0] - d.paraColorMap[0] ) < 0.00001 ) return 3;
-                                                    else return 0;
+                                                // vis.legendSubG.selectAll('rect').attr('stroke', function(d){
+                                                //     if( (d.name in arcData) && Math.abs( arcData[d.name][0] - d.paraColorMap[0] ) < 0.00001 ) return 'magenta';
+                                                //     else return 'white';
+                                                // }).attr('stroke-width', function(d){
+                                                //     if( (d.name in arcData) && Math.abs( arcData[d.name][0] - d.paraColorMap[0] ) < 0.00001 ) return 3;
+                                                //     else return 0;
+                                                // })
+                                                vis.legendSubG.selectAll('rect').attr('height', function(d){
+                                                    if( (d.name in arcData) && Math.abs( arcData[d.name][0] - d.paraColorMap[0] ) < 0.00001 ) return vis.colorSegmentHeight*2;
+                                                    else return vis.colorSegmentHeight;
                                                 })
                                         })
                         .on("mouseleave", function(){
                             let arc = d3.select(this);
                             arc.attr('stroke', 'white').attr('stroke-width', 0);
-                            vis.legendSubG.selectAll('rect').attr('stroke', 'white').attr('stroke-width',0);
+                            // vis.legendSubG.selectAll('rect').attr('stroke', 'white').attr('stroke-width',0);
+                            vis.legendSubG.selectAll('rect').attr('height', vis.colorSegmentHeight);
                         })
         
         // this.pathBackground.on('click', showSubspaceText);
@@ -667,37 +700,51 @@ class SunburstParameterInterface
         return max;
     }
 
-    hightlight( element, selected ){
+    hightlight( element, selected, highlightColor ){
         const vis = this;
-        vis.pathHead.attr("stroke", function(d){
-            if( d.data.name === "root") return;
-            let arcDt = d.data.nodeInfo;
-            let keys = Object.keys(arcDt);
-            for(let i=0; i<selected.length; i++){
-                let b = true;
-                keys.forEach(d => b = b && (arcDt[d][0] <= selected[i][d] && selected[i][d] < arcDt[d][1] ) );
-                if(b) return 'red';
-            }
-            return 'white';
-        });
 
-        vis.pathHead.attr("stroke-width", function(d){
+        vis.pathTopHightlighgt.attr("stroke", highlightColor);
+        vis.pathTopHightlighgt.attr("display", function(d){
             if( d.data.name === "root") return;
             let arcDt = d.data.nodeInfo;
             let keys = Object.keys(arcDt);
             for(let i=0; i<selected.length; i++){
                 let b = true;
                 keys.forEach(d => b = b && (arcDt[d][0] <= selected[i][d] && selected[i][d] < arcDt[d][1] ) );
-                if(b) return 2;
+                if(b) return '';
             }
-            return 1;
+            
+            return 'none';
         });
     }
 
     unhightlight( element, selected ){
         const vis = this;
-        vis.pathHead.attr("stroke", 'white' ).attr("stroke-width", 1);
+        vis.pathTopHightlighgt.attr("display", 'none' );
     }
+
+    hightlightOne( element, selected, highlightColor ){
+        const vis = this;
+
+        vis.pathTopHightlighgtOne.attr("stroke", highlightColor);
+        vis.pathTopHightlighgtOne.attr("display", function(d, i, n){
+            if( d.data.name === "root") return;
+            let arcDt = d.data.nodeInfo;
+            let keys = Object.keys(arcDt);
+
+            let b = true;
+            keys.forEach(d => b = b && (arcDt[d][0] <= selected[d] && selected[d] < arcDt[d][1] ) );
+            if(b) return '';
+            else return 'none';
+        });
+    }
+
+    unhightlightOne( element, selected ){
+        const vis = this;
+        vis.pathTopHightlighgtOne.attr("display", 'none' );
+    }
+
+
 
     setVisitedSubspace( visitParas ){
         const vis = this;

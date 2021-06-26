@@ -52,24 +52,31 @@ const sunburstUI = new SunburstParameterInterface("#chart-area", 600, 250, 50,
 
 //// test for mouse over the small circle
 let selected = [{"AAA": 0.5, "B": 0.06, "C":2}, {"AAA": 0.8, "B": 0.06, "C":2}];
+sunburstUI.hightlight(this, selected, d3.rgb(255, 128, 128) );
 d3.select('#chart-area').append('svg').attr('width', '100').attr('height', '100').append('circle').attr('cx',50).attr('cy',50).attr('r', 10)
+    .on('click', function(){
+        sunburstUI.unhightlight(this, selected);
+      } )
+
+let selectedOne = {"AAA": 0.9, "B": 0.065, "C":2.24};
+d3.select('#chart-area').append('svg').attr('width', '100').attr('height', '100').append('circle').attr('cx',20).attr('cy',50).attr('r', 30).attr('fill','green')
     .on('mouseover', function(){
-      sunburstUI.hightlight(this, selected);
+      sunburstUI.hightlightOne(this, selectedOne, d3.rgb(0, 0, 0) );
     } )
     .on('mouseout', function(){
-      sunburstUI.unhightlight(this, selected);
+      sunburstUI.unhightlightOne(this, selectedOne);
     } );
 
-  d3.select('#chart-area').append('svg').attr('width', '100').attr('height', '100').append('circle').attr('cx',70).attr('cy',50).attr('r', 30).attr('fill','red')
-  .on('mouseover', function(){
-    let selected = []
-    for( let i=0; i<100;i++){
-      let s = {};
-      for(let len = 0; len < paraRange.length; len++){
-        s[paraRange[len].name] = Math.random()*(paraRange[len].end - paraRange[len].start) + paraRange[len].start;
-      }
-      selected.push(s);
+d3.select('#chart-area').append('svg').attr('width', '100').attr('height', '100').append('circle').attr('cx',70).attr('cy',50).attr('r', 30).attr('fill','red')
+.on('mouseover', function(){
+  let selected = []
+  for( let i=0; i<100;i++){
+    let s = {};
+    for(let len = 0; len < paraRange.length; len++){
+      s[paraRange[len].name] = Math.random()*(paraRange[len].end - paraRange[len].start) + paraRange[len].start;
     }
-    sunburstUI.setVisitedSubspace(selected);
-  })
+    selected.push(s);
+  }
+  sunburstUI.setVisitedSubspace(selected);
+})
 
